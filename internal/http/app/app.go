@@ -5,24 +5,25 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/GuiFernandess7/jobot/internal/http/auth"
 	"github.com/GuiFernandess7/jobot/internal/http/handlers"
 	"github.com/GuiFernandess7/jobot/internal/http/routes"
 	"github.com/labstack/echo/v4"
-	"github.com/labstack/echo/v4/middleware"
+	echomiddleware "github.com/labstack/echo/v4/middleware"
 )
 
-func NewHandler(logger *slog.Logger) http.Handler {
-	return newEcho(logger)
+func NewHandler(logger *slog.Logger, triggerAPIKey string) http.Handler {
+	return newEcho(logger, triggerAPIKey)
 }
 
-func newEcho(logger *slog.Logger) *echo.Echo {
+func newEcho(logger *slog.Logger, triggerAPIKey string) *echo.Echo {
 	e := echo.New()
 	e.HideBanner = true
 	e.HidePort = true
-	e.Use(middleware.RequestID())
-	e.Use(middleware.RemoveTrailingSlash())
-	e.Use(middleware.Recover())
-	e.Use(middleware.SecureWithConfig(middleware.SecureConfig{
+	e.Use(echomiddleware.RequestID())
+	e.Use(echomiddleware.RemoveTrailingSlash())
+	e.Use(echomiddleware.Recover())
+	e.Use(echomiddleware.SecureWithConfig(echomiddleware.SecureConfig{
 		XSSProtection:         "1; mode=block",
 		ContentTypeNosniff:    "nosniff",
 		XFrameOptions:         "DENY",
@@ -31,14 +32,14 @@ func newEcho(logger *slog.Logger) *echo.Echo {
 		ContentSecurityPolicy: "default-src 'self'",
 		ReferrerPolicy:        "no-referrer",
 	}))
-	e.Use(middleware.RequestLoggerWithConfig(middleware.RequestLoggerConfig{
+	e.Use(echomiddleware.RequestLoggerWithConfig(echomiddleware.RequestLoggerConfig{
 		LogStatus:    true,
 		LogURI:       true,
 		LogMethod:    true,
 		LogLatency:   true,
 		LogRemoteIP:  true,
 		LogRequestID: true,
-		LogValuesFunc: func(c echo.Context, values middleware.RequestLoggerValues) error {
+		LogValuesFunc: func(c echo.Context, values echomiddleware.RequestLoggerValues) error {
 			logger.Info("http request",
 				"request_id", values.RequestID,
 				"method", values.Method,
@@ -50,6 +51,7 @@ func newEcho(logger *slog.Logger) *echo.Echo {
 			return nil
 		},
 	}))
+	e.Use(auth.APIKey(triggerAPIKey, logger))
 
 	routes.Register(e, handlers.NewTriggerHandler(logger))
 

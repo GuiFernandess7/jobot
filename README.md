@@ -22,12 +22,13 @@ FUNCTION_TARGET=Trigger LOCAL_ONLY=true go run ./cmd/local
 No PowerShell:
 
 ```powershell
+$env:TRIGGER_API_KEY="sua-chave-local"
 $env:FUNCTION_TARGET="Trigger"
 $env:LOCAL_ONLY="true"
 go run ./cmd/local
 ```
 
-Depois disso, voce pode testar com Postman ou curl em `POST http://localhost:8080/`.
+Depois disso, voce pode testar com Postman ou curl em `POST http://localhost:8080/` enviando o header `X-API-Key`.
 
 O entrypoint local recebe a chamada em `/` e a encaminha internamente para a rota `/trigger`.
 
@@ -36,6 +37,12 @@ O entrypoint local recebe a chamada em `/` e a encaminha internamente para a rot
 ### `POST /trigger`
 
 Retorna uma resposta JSON simples confirmando o acionamento da rota.
+
+Header obrigatorio:
+
+```text
+X-API-Key: <sua-chave>
+```
 
 Exemplo de resposta:
 
@@ -52,6 +59,7 @@ Exemplo de resposta:
 - `Recover`: evita queda do processo em caso de panic.
 - `Secure`: aplica cabecalhos de seguranca basicos.
 - `RemoveTrailingSlash`: normaliza URLs com barra final.
+- `APIKey`: valida o header `X-API-Key` com base na variavel `TRIGGER_API_KEY`.
 
 ## Estrutura do projeto
 
@@ -90,6 +98,8 @@ O codigo foi separado por responsabilidade para facilitar manutencao, testes e e
 gcloud builds submit --config cloudbuild.yaml \
   --substitutions "_FUNCTION_NAME=jobot-trigger,_REGION=us-central1,_RUNTIME=go125,_ENTRY_POINT=Trigger"
 ```
+
+Antes do deploy, configure a variavel de ambiente `TRIGGER_API_KEY` na funcao ou ajuste o pipeline para publica-la. Sem essa variavel, a funcao respondera com erro de configuracao.
 
 ### Observacao importante
 
