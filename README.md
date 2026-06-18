@@ -69,7 +69,7 @@ function.go
 internal/http/app
 internal/http/handlers
 internal/http/routes
-cloudbuild.function-gen2.yaml
+cloudbuild.yaml
 ```
 
 ## O que cada modulo faz
@@ -96,10 +96,24 @@ O codigo foi separado por responsabilidade para facilitar manutencao, testes e e
 
 ```bash
 gcloud builds submit --config cloudbuild.yaml \
-  --substitutions "_FUNCTION_NAME=jobot-trigger,_REGION=us-central1,_RUNTIME=go125,_ENTRY_POINT=Trigger"
+  --substitutions "_FUNCTION_NAME=jobot-trigger,_REGION=us-central1,_RUNTIME=go125,_ENTRY_POINT=Trigger,_TRIGGER_API_KEY_SECRET=jobot-trigger-api-key,_TRIGGER_API_KEY_VERSION=latest"
 ```
 
-Antes do deploy, configure a variavel de ambiente `TRIGGER_API_KEY` na funcao ou ajuste o pipeline para publica-la. Sem essa variavel, a funcao respondera com erro de configuracao.
+Antes do deploy, crie um segredo no Secret Manager contendo a chave esperada no header `X-API-Key`.
+
+Exemplo:
+
+```bash
+echo -n "sua-chave" | gcloud secrets create jobot-trigger-api-key --data-file=-
+```
+
+Se o segredo ja existir, publique uma nova versao:
+
+```bash
+echo -n "sua-chave" | gcloud secrets versions add jobot-trigger-api-key --data-file=-
+```
+
+O pipeline publica esse segredo na funcao como a variavel `TRIGGER_API_KEY` usando `--set-secrets`.
 
 ### Observacao importante
 
