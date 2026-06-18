@@ -1,0 +1,24 @@
+substitutions:
+  _FUNCTION_NAME: jobot-trigger
+  _REGION: us-central1
+  _RUNTIME: go125
+  _ENTRY_POINT: Trigger
+
+steps:
+  - name: gcr.io/google.com/cloudsdktool/cloud-sdk
+    entrypoint: gcloud
+    args:
+      - functions
+      - deploy
+      - ${_FUNCTION_NAME}
+      - --gen2
+      - --runtime
+      - ${_RUNTIME}
+      - --region
+      - ${_REGION}
+      - --source
+      - .
+      - --entry-point
+      - ${_ENTRY_POINT}
+      - --trigger-http
+      - --allow-unauthenticated
