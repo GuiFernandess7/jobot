@@ -82,13 +82,13 @@ O codigo foi separado por responsabilidade para facilitar manutencao, testes e e
 
 - O Echo e reutilizado como `http.Handler`, sem processo proprio escutando porta.
 - O entrypoint HTTP exportado chama-se `Trigger` em `function.go`.
-- O deploy e feito por pipeline usando `cloudbuild.function-gen2.yaml`.
+- O deploy e feito por pipeline usando `cloudbuild.yaml`.
 
 ### Deploy com Cloud Functions Gen 2
 
 ```bash
-gcloud builds submit --config cloudbuild.function-gen2.yaml \
-  --substitutions _FUNCTION_NAME=jobot-trigger,_REGION=us-central1,_RUNTIME=go125,_ENTRY_POINT=Trigger
+gcloud builds submit --config cloudbuild.yaml \
+  --substitutions "_FUNCTION_NAME=jobot-trigger,_REGION=us-central1,_RUNTIME=go125,_ENTRY_POINT=Trigger"
 ```
 
 ### Observacao importante

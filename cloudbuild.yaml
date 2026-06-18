@@ -4,6 +4,9 @@ substitutions:
   _RUNTIME: go125
   _ENTRY_POINT: Trigger
 
+options:
+  logging: CLOUD_LOGGING_ONLY
+
 steps:
   - name: gcr.io/google.com/cloudsdktool/cloud-sdk
     entrypoint: gcloud
