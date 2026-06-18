@@ -22,13 +22,12 @@ FUNCTION_TARGET=Trigger LOCAL_ONLY=true go run ./cmd/local
 No PowerShell:
 
 ```powershell
-$env:TRIGGER_API_KEY="sua-chave-local"
 $env:FUNCTION_TARGET="Trigger"
 $env:LOCAL_ONLY="true"
 go run ./cmd/local
 ```
 
-Depois disso, voce pode testar com Postman ou curl em `POST http://localhost:8080/` enviando o header `X-API-Key`.
+Depois disso, voce pode testar com Postman ou curl em `POST http://localhost:8080/`.
 
 O entrypoint local recebe a chamada em `/` e a encaminha internamente para a rota `/trigger`.
 
@@ -37,12 +36,6 @@ O entrypoint local recebe a chamada em `/` e a encaminha internamente para a rot
 ### `POST /trigger`
 
 Retorna uma resposta JSON simples confirmando o acionamento da rota.
-
-Header obrigatorio:
-
-```text
-X-API-Key: <sua-chave>
-```
 
 Exemplo de resposta:
 
@@ -59,7 +52,6 @@ Exemplo de resposta:
 - `Recover`: evita queda do processo em caso de panic.
 - `Secure`: aplica cabecalhos de seguranca basicos.
 - `RemoveTrailingSlash`: normaliza URLs com barra final.
-- `APIKey`: valida o header `X-API-Key` com base na variavel `TRIGGER_API_KEY`.
 
 ## Estrutura do projeto
 
@@ -96,25 +88,21 @@ O codigo foi separado por responsabilidade para facilitar manutencao, testes e e
 
 ```bash
 gcloud builds submit --config cloudbuild.yaml \
-  --substitutions "_FUNCTION_NAME=jobot-trigger,_REGION=us-central1,_RUNTIME=go125,_ENTRY_POINT=Trigger,_TRIGGER_API_KEY_SECRET=jobot-trigger-api-key,_TRIGGER_API_KEY_VERSION=latest"
+  --substitutions "_FUNCTION_NAME=jobot-trigger,_REGION=us-central1,_RUNTIME=go125,_ENTRY_POINT=Trigger"
 ```
-
-Antes do deploy, crie um segredo no Secret Manager contendo a chave esperada no header `X-API-Key`.
-
-Exemplo:
-
-```bash
-echo -n "sua-chave" | gcloud secrets create jobot-trigger-api-key --data-file=-
-```
-
-Se o segredo ja existir, publique uma nova versao:
-
-```bash
-echo -n "sua-chave" | gcloud secrets versions add jobot-trigger-api-key --data-file=-
-```
-
-O pipeline publica esse segredo na funcao como a variavel `TRIGGER_API_KEY` usando `--set-secrets`.
 
 ### Observacao importante
 
 No modelo Cloud Functions Gen 2, a funcao HTTP recebe todas as requisicoes no entrypoint configurado. Neste projeto, o entrypoint `Trigger` encaminha a requisicao para a stack Echo interna, preservando middlewares, logs e headers seguros.
+
+## Postman
+
+Foi adicionada uma collection em `postman/jobot-trigger.postman_collection.json` e um environment base em `postman/jobot-trigger.postman_environment.json`.
+
+Para usar com IAM/OIDC:
+
+```powershell
+gcloud auth print-identity-token --audiences="https://us-central1-symbolic-idea-415723.cloudfunctions.net/jobot-trigger"
+```
+
+Cole o valor gerado na variavel `identity_token` do Postman.

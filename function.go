@@ -30,7 +30,7 @@ func Trigger(w http.ResponseWriter, r *http.Request) {
 func getFunctionHandler() http.Handler {
 	handlerOnce.Do(func() {
 		logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}))
-		functionHandler = app.NewHandler(logger, os.Getenv("TRIGGER_API_KEY"))
+		functionHandler = app.NewHandler(logger)
 	})
 
 	return functionHandler

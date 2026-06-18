@@ -5,18 +5,17 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/GuiFernandess7/jobot/internal/http/auth"
 	"github.com/GuiFernandess7/jobot/internal/http/handlers"
 	"github.com/GuiFernandess7/jobot/internal/http/routes"
 	"github.com/labstack/echo/v4"
 	echomiddleware "github.com/labstack/echo/v4/middleware"
 )
 
-func NewHandler(logger *slog.Logger, triggerAPIKey string) http.Handler {
-	return newEcho(logger, triggerAPIKey)
+func NewHandler(logger *slog.Logger) http.Handler {
+	return newEcho(logger)
 }
 
-func newEcho(logger *slog.Logger, triggerAPIKey string) *echo.Echo {
+func newEcho(logger *slog.Logger) *echo.Echo {
 	e := echo.New()
 	e.HideBanner = true
 	e.HidePort = true
@@ -51,7 +50,6 @@ func newEcho(logger *slog.Logger, triggerAPIKey string) *echo.Echo {
 			return nil
 		},
 	}))
-	e.Use(auth.APIKey(triggerAPIKey, logger))
 
 	routes.Register(e, handlers.NewTriggerHandler(logger))
 

@@ -3,8 +3,6 @@ substitutions:
   _REGION: us-central1
   _RUNTIME: go125
   _ENTRY_POINT: Trigger
-  _TRIGGER_API_KEY_SECRET: jobot-trigger-api-key
-  _TRIGGER_API_KEY_VERSION: latest
 
 options:
   logging: CLOUD_LOGGING_ONLY
@@ -25,7 +23,4 @@ steps:
       - .
       - --entry-point
       - ${_ENTRY_POINT}
-      - --set-secrets
-      - TRIGGER_API_KEY=${_TRIGGER_API_KEY_SECRET}:${_TRIGGER_API_KEY_VERSION}
       - --trigger-http
-      - --allow-unauthenticated
