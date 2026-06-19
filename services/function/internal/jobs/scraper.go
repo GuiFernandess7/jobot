@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"math/rand"
 	"net/http"
 	"net/url"
@@ -28,10 +29,11 @@ type CapturedJob struct {
 
 type LinkedInScraper struct {
 	httpClient *http.Client
+	logger     *slog.Logger
 	rand       *rand.Rand
 }
 
-func NewLinkedInScraper() *LinkedInScraper {
+func NewLinkedInScraper(logger *slog.Logger) *LinkedInScraper {
 	return &LinkedInScraper{
 		httpClient: &http.Client{
 			Timeout: 45 * time.Second,
@@ -43,6 +45,7 @@ func NewLinkedInScraper() *LinkedInScraper {
 				ForceAttemptHTTP2:     true,
 			},
 		},
+		logger:     logger,
 		rand:       rand.New(rand.NewSource(time.Now().UnixNano())),
 	}
 }
@@ -52,8 +55,10 @@ func (s *LinkedInScraper) GetJobIDsFromLinkedIn(ctx context.Context, terms []str
 	seen := make(map[string]struct{})
 
 	for index, term := range terms {
+		s.logger.Info("linkedin term processing started", "term", term)
 		termJobs, err := s.fetchTermJobs(ctx, term)
 		if err != nil {
+			s.logger.Error("linkedin term processing failed", "term", term, "error", err)
 			return nil, err
 		}
 
@@ -66,6 +71,8 @@ func (s *LinkedInScraper) GetJobIDsFromLinkedIn(ctx context.Context, terms []str
 			seen[key] = struct{}{}
 			jobs = append(jobs, job)
 		}
+
+		s.logger.Info("linkedin term processing finished", "term", term, "jobs_found", len(termJobs))
 
 		if index < len(terms)-1 {
 			// Jitter reduces the chance of repeating the same timing signature between requests.
@@ -87,8 +94,11 @@ func (s *LinkedInScraper) fetchTermJobs(ctx context.Context, term string) ([]Cap
 		return nil, err
 	}
 
+	s.logger.Info("linkedin request prepared", "term", term, "url", requestURL)
+
 	var lastErr error
 	for attempt := 1; attempt <= linkedInRetryAttempts; attempt++ {
+		s.logger.Info("linkedin request started", "term", term, "attempt", attempt, "url", requestURL)
 		req, err := http.NewRequestWithContext(ctx, http.MethodGet, requestURL, nil)
 		if err != nil {
 			return nil, fmt.Errorf("build linkedin request: %w", err)
@@ -99,7 +109,9 @@ func (s *LinkedInScraper) fetchTermJobs(ctx context.Context, term string) ([]Cap
 		resp, err := s.httpClient.Do(req)
 		if err != nil {
 			lastErr = err
+			s.logger.Warn("linkedin request failed", "term", term, "attempt", attempt, "url", requestURL, "error", err)
 			if attempt < linkedInRetryAttempts && isRetryableLinkedInError(err) {
+				s.logger.Info("linkedin request retry scheduled", "term", term, "attempt", attempt, "url", requestURL)
 				select {
 				case <-ctx.Done():
 					return nil, ctx.Err()
@@ -119,7 +131,9 @@ func (s *LinkedInScraper) fetchTermJobs(ctx context.Context, term string) ([]Cap
 
 		if resp.StatusCode != http.StatusOK {
 			lastErr = fmt.Errorf("linkedin jobs request for %q returned status %d", term, resp.StatusCode)
+			s.logger.Warn("linkedin request returned non-200 status", "term", term, "attempt", attempt, "url", requestURL, "status", resp.StatusCode)
 			if attempt < linkedInRetryAttempts && resp.StatusCode >= http.StatusInternalServerError {
+				s.logger.Info("linkedin status retry scheduled", "term", term, "attempt", attempt, "url", requestURL)
 				select {
 				case <-ctx.Done():
 					return nil, ctx.Err()
@@ -131,7 +145,9 @@ func (s *LinkedInScraper) fetchTermJobs(ctx context.Context, term string) ([]Cap
 			return nil, lastErr
 		}
 
-		return parseJobIDs(string(body), term), nil
+		jobs := parseJobIDs(string(body), term)
+		s.logger.Info("linkedin request finished", "term", term, "attempt", attempt, "url", requestURL, "status", resp.StatusCode, "jobs_found", len(jobs))
+		return jobs, nil
 	}
 
 	return nil, fmt.Errorf("request linkedin jobs for %q: %w", term, lastErr)

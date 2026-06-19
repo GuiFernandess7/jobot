@@ -22,7 +22,7 @@ type Service struct {
 func NewService(logger *slog.Logger) *Service {
 	return &Service{
 		logger:  logger,
-		scraper: NewLinkedInScraper(),
+		scraper: NewLinkedInScraper(logger),
 	}
 }
 
