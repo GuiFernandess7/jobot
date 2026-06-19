@@ -2,6 +2,7 @@ package jobs
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"math/rand"
@@ -13,6 +14,7 @@ import (
 )
 
 const linkedInGuestSearchURL = "https://www.linkedin.com/jobs-guest/jobs/api/seeMoreJobPostings/search"
+const linkedInRetryAttempts = 3
 
 const browserUserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36"
 
@@ -31,7 +33,16 @@ type LinkedInScraper struct {
 
 func NewLinkedInScraper() *LinkedInScraper {
 	return &LinkedInScraper{
-		httpClient: &http.Client{Timeout: 30 * time.Second},
+		httpClient: &http.Client{
+			Timeout: 45 * time.Second,
+			Transport: &http.Transport{
+				Proxy:                 http.ProxyFromEnvironment,
+				TLSHandshakeTimeout:   20 * time.Second,
+				ResponseHeaderTimeout: 20 * time.Second,
+				IdleConnTimeout:       90 * time.Second,
+				ForceAttemptHTTP2:     true,
+			},
+		},
 		rand:       rand.New(rand.NewSource(time.Now().UnixNano())),
 	}
 }
@@ -76,29 +87,67 @@ func (s *LinkedInScraper) fetchTermJobs(ctx context.Context, term string) ([]Cap
 		return nil, err
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, requestURL, nil)
-	if err != nil {
-		return nil, fmt.Errorf("build linkedin request: %w", err)
-	}
-	req.Header.Set("User-Agent", browserUserAgent)
-	req.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
+	var lastErr error
+	for attempt := 1; attempt <= linkedInRetryAttempts; attempt++ {
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, requestURL, nil)
+		if err != nil {
+			return nil, fmt.Errorf("build linkedin request: %w", err)
+		}
+		req.Header.Set("User-Agent", browserUserAgent)
+		req.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
 
-	resp, err := s.httpClient.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("request linkedin jobs for %q: %w", term, err)
-	}
-	defer resp.Body.Close()
+		resp, err := s.httpClient.Do(req)
+		if err != nil {
+			lastErr = err
+			if attempt < linkedInRetryAttempts && isRetryableLinkedInError(err) {
+				select {
+				case <-ctx.Done():
+					return nil, ctx.Err()
+				case <-time.After(time.Duration(attempt) * 2 * time.Second):
+				}
+				continue
+			}
 
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("linkedin jobs request for %q returned status %d", term, resp.StatusCode)
+			return nil, fmt.Errorf("request linkedin jobs for %q: %w", term, err)
+		}
+
+		body, readErr := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		if readErr != nil {
+			return nil, fmt.Errorf("read linkedin response body for %q: %w", term, readErr)
+		}
+
+		if resp.StatusCode != http.StatusOK {
+			lastErr = fmt.Errorf("linkedin jobs request for %q returned status %d", term, resp.StatusCode)
+			if attempt < linkedInRetryAttempts && resp.StatusCode >= http.StatusInternalServerError {
+				select {
+				case <-ctx.Done():
+					return nil, ctx.Err()
+				case <-time.After(time.Duration(attempt) * 2 * time.Second):
+				}
+				continue
+			}
+
+			return nil, lastErr
+		}
+
+		return parseJobIDs(string(body), term), nil
 	}
 
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("read linkedin response body for %q: %w", term, err)
+	return nil, fmt.Errorf("request linkedin jobs for %q: %w", term, lastErr)
+}
+
+func isRetryableLinkedInError(err error) bool {
+	if err == nil {
+		return false
 	}
 
-	return parseJobIDs(string(body), term), nil
+	if errors.Is(err, context.DeadlineExceeded) {
+		return true
+	}
+
+	errText := strings.ToLower(err.Error())
+	return strings.Contains(errText, "tls handshake timeout") || strings.Contains(errText, "timeout") || strings.Contains(errText, "temporary")
 }
 
 func buildLinkedInGuestSearchURL(term string) (string, error) {
