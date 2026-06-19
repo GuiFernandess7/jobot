@@ -17,7 +17,7 @@ const linkedInGuestSearchURL = "https://www.linkedin.com/jobs-guest/jobs/api/see
 const browserUserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36"
 
 var jobPostingCardKeyPattern = regexp.MustCompile(`jobPostingCardKey":"(\d+)"`)
-var jobViewURLPattern = regexp.MustCompile(`/view/[^\"]*?(\d+)`)
+var jobViewURLPattern = regexp.MustCompile(`/view/[^\"?]*?(\d{6,})`)
 
 type CapturedJob struct {
 	ID         string
@@ -110,6 +110,7 @@ func buildLinkedInGuestSearchURL(term string) (string, error) {
 	query := parsedURL.Query()
 	query.Set("keywords", term)
 	query.Set("location", "Brazil")
+	query.Set("geoId", "106057199")
 	query.Set("f_TPR", "r86400")
 	query.Set("start", "0")
 	parsedURL.RawQuery = query.Encode()

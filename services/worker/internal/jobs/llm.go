@@ -49,6 +49,13 @@ type llmWrappedResponse struct {
 	} `json:"choices"`
 }
 
+type rawJobReview struct {
+	Decision      any `json:"decisao"`
+	JobTitle      any `json:"titulo_vaga"`
+	Company       any `json:"empresa"`
+	Justification any `json:"justificativa"`
+}
+
 func NewHTTPStructuredLLMClient() *HTTPStructuredLLMClient {
 	return &HTTPStructuredLLMClient{
 		httpClient: &http.Client{Timeout: 120 * time.Second},
@@ -122,17 +129,38 @@ func parseLLMReview(responseBody []byte) (JobReview, error) {
 		return JobReview{}, errors.New("llm response does not contain choices")
 	}
 
-	content := strings.TrimSpace(wrapped.Choices[0].Message.Content)
+	content := sanitizeLLMContent(wrapped.Choices[0].Message.Content)
 	if content == "" {
 		return JobReview{}, errors.New("llm response choice content is empty")
 	}
 
-	var review JobReview
-	if err := json.Unmarshal([]byte(content), &review); err != nil {
+	var rawReview rawJobReview
+	if err := json.Unmarshal([]byte(content), &rawReview); err != nil {
 		return JobReview{}, fmt.Errorf("decode llm structured content: %w", err)
 	}
 
+	review, err := normalizeRawJobReview(rawReview)
+	if err != nil {
+		return JobReview{}, err
+	}
+
 	return review, nil
+}
+
+func sanitizeLLMContent(content string) string {
+	trimmed := strings.TrimSpace(content)
+	trimmed = strings.TrimPrefix(trimmed, "```json")
+	trimmed = strings.TrimPrefix(trimmed, "```")
+	trimmed = strings.TrimSuffix(trimmed, "```")
+	trimmed = strings.TrimSpace(trimmed)
+
+	start := strings.Index(trimmed, "{")
+	end := strings.LastIndex(trimmed, "}")
+	if start >= 0 && end >= start {
+		return strings.TrimSpace(trimmed[start : end+1])
+	}
+
+	return trimmed
 }
 
 func buildJobReviewPrompt(details JobDetails) string {
@@ -153,4 +181,60 @@ func fallbackEnv(name string, fallback string) string {
 	}
 
 	return value
+}
+
+func normalizeRawJobReview(raw rawJobReview) (JobReview, error) {
+	decision, err := normalizeDecision(raw.Decision)
+	if err != nil {
+		return JobReview{}, err
+	}
+
+	return JobReview{
+		Decision:      decision,
+		JobTitle:      stringifyJSONValue(raw.JobTitle),
+		Company:       stringifyJSONValue(raw.Company),
+		Justification: stringifyJSONValue(raw.Justification),
+	}, nil
+}
+
+func normalizeDecision(value any) (string, error) {
+	switch typed := value.(type) {
+	case string:
+		decision := strings.ToUpper(strings.TrimSpace(typed))
+		switch decision {
+		case "APROVADO", "REJEITADO":
+			return decision, nil
+		case "APROVAR", "TRUE", "ACEITO", "VALIDO", "VÁLIDO", "SIM":
+			return "APROVADO", nil
+		case "FALSE", "INVALIDO", "INVÁLIDO", "INVALID", "REPROVADO", "NEGADO", "NAO", "NÃO", "NAO APROVADO", "NÃO APROVADO":
+			return "REJEITADO", nil
+		default:
+			return "REJEITADO", nil
+		}
+	case bool:
+		if typed {
+			return "APROVADO", nil
+		}
+		return "REJEITADO", nil
+	case float64:
+		if typed != 0 {
+			return "APROVADO", nil
+		}
+		return "REJEITADO", nil
+	case nil:
+		return "", errors.New("llm response is missing decisao")
+	default:
+		return "", fmt.Errorf("unsupported decisao type %T", value)
+	}
+}
+
+func stringifyJSONValue(value any) string {
+	switch typed := value.(type) {
+	case string:
+		return strings.TrimSpace(typed)
+	case nil:
+		return ""
+	default:
+		return strings.TrimSpace(fmt.Sprint(typed))
+	}
 }
