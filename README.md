@@ -1,108 +1,120 @@
 # jobot
 
-API em Go usando Echo, preparada para deploy exclusivo como Cloud Functions Gen 2 com uma estrutura simples, legivel e facil de manter.
+Monorepo em Go com dois servicos isolados por modulo:
 
-## Como desenvolver localmente
+- `services/function`: funcao HTTP responsavel pela captura inicial de vagas.
+- `services/worker`: worker batch responsavel pela triagem e notificacao.
 
-```bash
-go mod tidy
-go build ./...
+O repositorio usa Go Workspaces em `go.work` para desenvolvimento conjunto, mas cada servico tem seu proprio `go.mod`, dependencias e pipeline de deploy.
+
+## Estrutura
+
+```text
+services/
+  function/
+    cmd/local/
+    internal/http/
+    internal/jobs/
+    function.go
+    go.mod
+  worker/
+    cmd/worker/
+    internal/jobs/
+    Dockerfile
+    worker.go
+    go.mod
+deploy/
+  function.cloudbuild.yaml
+  worker.cloudbuild.yaml
+go.work
 ```
 
-O deploy e orientado a Functions Framework no GCP. Nao existe mais um `main.go` para subir um servidor HTTP dedicado como processo da aplicacao.
+## Ambiente local
 
-### Rodar localmente e testar via HTTP
+Crie um arquivo `.env` na raiz do repositorio:
 
-Para subir a funcao localmente com o Functions Framework:
+```dotenv
+DATABASE_URL=postgresql://user:password@host/database?sslmode=require
+LLM_API_URL=https://api.siliconflow.com/v1/chat/completions
+LLM_API_KEY=your-llm-api-key
+LLM_MODEL=deepseek-ai/DeepSeek-V3
+DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/your/webhook
+```
+
+Os dois servicos tentam carregar `.env` tanto do diretorio atual quanto da raiz do monorepo.
+
+## Desenvolvimento
+
+Para validar os dois modulos no workspace:
 
 ```bash
-FUNCTION_TARGET=Trigger LOCAL_ONLY=true go run ./cmd/local
+go build ./services/function/...
+go build ./services/worker/...
 ```
+
+### Function local
 
 No PowerShell:
 
 ```powershell
 $env:FUNCTION_TARGET="Trigger"
 $env:LOCAL_ONLY="true"
-go run ./cmd/local
+go run ./services/function/cmd/local
 ```
 
-Depois disso, voce pode testar com Postman ou curl em `POST http://localhost:8080/`.
+A function recebe `POST http://localhost:8080/` e encaminha internamente para `/trigger`.
 
-O entrypoint local recebe a chamada em `/` e a encaminha internamente para a rota `/trigger`.
-
-## Rota disponivel
-
-### `POST /trigger`
-
-Retorna uma resposta JSON simples confirmando o acionamento da rota.
-
-Exemplo de resposta:
+Payload opcional:
 
 ```json
 {
-  "message": "trigger received"
+  "terms": ["golang", "python backend"]
 }
 ```
 
-## Middlewares aplicados
+### Worker local
 
-- `RequestID`: adiciona um identificador por requisicao.
-- `RequestLogger`: registra metodo, rota, status, latencia e IP.
-- `Recover`: evita queda do processo em caso de panic.
-- `Secure`: aplica cabecalhos de seguranca basicos.
-- `RemoveTrailingSlash`: normaliza URLs com barra final.
-
-## Estrutura do projeto
-
-```text
-cmd/local
-function.go
-internal/http/app
-internal/http/handlers
-internal/http/routes
-cloudbuild.yaml
-```
-
-## O que cada modulo faz
-
-- `cmd/local`: runner local do Functions Framework para testes HTTP fora do GCP.
-- `function.go`: entrypoint HTTP registrado no Functions Framework para Cloud Functions Gen 2.
-- `internal/http/app`: composicao do handler Echo e middlewares da funcao.
-- `internal/http/routes`: registro centralizado das rotas HTTP.
-- `internal/http/handlers`: implementacao dos handlers de cada endpoint.
-
-## Observacoes de arquitetura
-
-O codigo foi separado por responsabilidade para facilitar manutencao, testes e expansao futura. Novas rotas podem ser adicionadas criando novos handlers e registrando-os em `internal/http/routes` sem acoplar regras de negocio ao entrypoint da funcao.
-
-## Deploy no GCP Cloud Functions Gen 2
-
-### O que foi ajustado
-
-- O Echo e reutilizado como `http.Handler`, sem processo proprio escutando porta.
-- O entrypoint HTTP exportado chama-se `Trigger` em `function.go`.
-- O deploy e feito por pipeline usando `cloudbuild.yaml`.
-
-### Deploy com Cloud Functions Gen 2
-
-```bash
-gcloud builds submit --config cloudbuild.yaml \
-  --substitutions "_FUNCTION_NAME=jobot-trigger,_REGION=us-central1,_RUNTIME=go125,_ENTRY_POINT=Trigger"
-```
-
-### Observacao importante
-
-No modelo Cloud Functions Gen 2, a funcao HTTP recebe todas as requisicoes no entrypoint configurado. Neste projeto, o entrypoint `Trigger` encaminha a requisicao para a stack Echo interna, preservando middlewares, logs e headers seguros.
-
-## Postman
-
-Foi adicionada uma collection em `postman/jobot-trigger.postman_collection.json` e um environment base em `postman/jobot-trigger.postman_environment.json`.
-
-Para usar com IAM/OIDC:
+No PowerShell:
 
 ```powershell
-gcloud auth print-identity-token --audiences="https://us-central1-symbolic-idea-415723.cloudfunctions.net/jobot-trigger"
+go run ./services/worker/cmd/worker
 ```
 
-Cole o valor gerado na variavel `identity_token` do Postman.
+O worker busca todas as vagas com status `PENDENTE`, processa cada item com jitter, chama a LLM configurada e envia aprovadas ao Discord.
+
+A chamada da LLM segue o formato de `POST /v1/chat/completions` com `Authorization: Bearer`, `Content-Type: application/json`, `model` e um unico item em `messages` com `role: user`. A resposta e tratada no formato `choices[0].message.content`, equivalente ao fluxo `resp.raise_for_status(); resp.json()["choices"][0]["message"]["content"]`.
+
+## Responsabilidades por servico
+
+### Function
+
+- Stack HTTP com Echo e middlewares.
+- Endpoint `POST /trigger`.
+- Scraper do LinkedIn Guest API.
+- Gravacao inicial de vagas no PostgreSQL com deduplicacao.
+
+### Worker
+
+- Leitura batch de vagas pendentes.
+- Enriquecimento por pagina publica de detalhe do LinkedIn.
+- Integracao com LLM para decisao estruturada.
+- Notificacao por Discord webhook.
+- Atualizacao de status para `PROCESSADO` ou `ERRO`.
+
+## Deploys isolados
+
+### Function
+
+```bash
+gcloud builds submit --config deploy/function.cloudbuild.yaml .
+```
+
+Esse pipeline faz deploy da Cloud Function Gen 2 usando apenas `services/function` como source do servico.
+
+### Worker
+
+```bash
+gcloud builds submit --config deploy/worker.cloudbuild.yaml .
+```
+
+Esse pipeline gera a imagem do worker a partir de `services/worker` e publica um Cloud Run Job separado.

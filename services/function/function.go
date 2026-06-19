@@ -1,4 +1,4 @@
-package jobot
+package jobotfunction
 
 import (
 	"log/slog"
@@ -7,7 +7,8 @@ import (
 	"sync"
 
 	"github.com/GoogleCloudPlatform/functions-framework-go/functions"
-	"github.com/GuiFernandess7/jobot/internal/http/app"
+	"github.com/GuiFernandess7/jobot/services/function/internal/http/app"
+	"github.com/joho/godotenv"
 )
 
 var (
@@ -29,9 +30,21 @@ func Trigger(w http.ResponseWriter, r *http.Request) {
 
 func getFunctionHandler() http.Handler {
 	handlerOnce.Do(func() {
+		loadEnvFiles()
+
 		logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}))
-		functionHandler = app.NewHandler(logger)
+		handler, err := app.NewHandler(logger)
+		if err != nil {
+			panic(err)
+		}
+
+		functionHandler = handler
 	})
 
 	return functionHandler
+}
+
+func loadEnvFiles() {
+	_ = godotenv.Load()
+	_ = godotenv.Load("../../.env")
 }

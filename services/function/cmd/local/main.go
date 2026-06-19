@@ -5,7 +5,7 @@ import (
 	"os"
 
 	"github.com/GoogleCloudPlatform/functions-framework-go/funcframework"
-	_ "github.com/GuiFernandess7/jobot"
+	_ "github.com/GuiFernandess7/jobot/services/function"
 )
 
 func main() {

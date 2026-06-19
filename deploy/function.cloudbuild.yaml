@@ -20,7 +20,7 @@ steps:
       - --region
       - ${_REGION}
       - --source
-      - .
+      - services/function
       - --entry-point
       - ${_ENTRY_POINT}
       - --trigger-http

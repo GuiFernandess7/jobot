@@ -5,17 +5,23 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/GuiFernandess7/jobot/internal/http/handlers"
-	"github.com/GuiFernandess7/jobot/internal/http/routes"
+	"github.com/GuiFernandess7/jobot/services/function/internal/http/handlers"
+	"github.com/GuiFernandess7/jobot/services/function/internal/http/routes"
+	"github.com/GuiFernandess7/jobot/services/function/internal/jobs"
 	"github.com/labstack/echo/v4"
 	echomiddleware "github.com/labstack/echo/v4/middleware"
 )
 
-func NewHandler(logger *slog.Logger) http.Handler {
-	return newEcho(logger)
+func NewHandler(logger *slog.Logger) (http.Handler, error) {
+	service, err := jobs.NewService(logger)
+	if err != nil {
+		return nil, err
+	}
+
+	return newEcho(logger, service), nil
 }
 
-func newEcho(logger *slog.Logger) *echo.Echo {
+func newEcho(logger *slog.Logger, service *jobs.Service) *echo.Echo {
 	e := echo.New()
 	e.HideBanner = true
 	e.HidePort = true
@@ -51,7 +57,7 @@ func newEcho(logger *slog.Logger) *echo.Echo {
 		},
 	}))
 
-	routes.Register(e, handlers.NewTriggerHandler(logger))
+	routes.Register(e, handlers.NewTriggerHandler(logger, service))
 
 	return e
 }
