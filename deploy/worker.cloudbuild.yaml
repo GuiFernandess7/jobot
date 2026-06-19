@@ -3,6 +3,9 @@ substitutions:
   _REGION: us-central1
   _AR_REPOSITORY: jobot
   _IMAGE_NAME: worker
+  _DATABASE_URL_SECRET: jobot-database-url
+  _LLM_API_KEY_SECRET: jobot-llm-api-key
+  _DISCORD_WEBHOOK_SECRET: jobot-discord-webhook-url
 
 options:
   logging: CLOUD_LOGGING_ONLY
@@ -30,3 +33,5 @@ steps:
       - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPOSITORY}/${_IMAGE_NAME}:$COMMIT_SHA
       - --region
       - ${_REGION}
+      - --set-secrets
+      - DATABASE_URL=${_DATABASE_URL_SECRET}:latest,LLM_API_KEY=${_LLM_API_KEY_SECRET}:latest,DISCORD_WEBHOOK_URL=${_DISCORD_WEBHOOK_SECRET}:latest

@@ -134,3 +134,31 @@ gcloud builds submit --config deploy/worker.cloudbuild.yaml .
 ```
 
 Esse pipeline gera a imagem do worker a partir de `services/worker` e publica um Cloud Run Job separado.
+
+Antes do primeiro deploy do worker, crie os secrets necessarios no Secret Manager:
+
+```bash
+printf '%s' 'postgresql://user:password@host/database?sslmode=require' | \
+gcloud secrets create jobot-database-url --data-file=-
+
+printf '%s' 'sua-chave-da-llm' | \
+gcloud secrets create jobot-llm-api-key --data-file=-
+
+printf '%s' 'https://discord.com/api/webhooks/...' | \
+gcloud secrets create jobot-discord-webhook-url --data-file=-
+```
+
+Se os secrets ja existirem e voce quiser atualizar os valores:
+
+```bash
+printf '%s' 'postgresql://user:password@host/database?sslmode=require' | \
+gcloud secrets versions add jobot-database-url --data-file=-
+
+printf '%s' 'sua-chave-da-llm' | \
+gcloud secrets versions add jobot-llm-api-key --data-file=-
+
+printf '%s' 'https://discord.com/api/webhooks/...' | \
+gcloud secrets versions add jobot-discord-webhook-url --data-file=-
+```
+
+Os nomes podem ser trocados no deploy via `_DATABASE_URL_SECRET`, `_LLM_API_KEY_SECRET` e `_DISCORD_WEBHOOK_SECRET`.
