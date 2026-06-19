@@ -24,6 +24,8 @@ steps:
       - services/function
       - --entry-point
       - ${_ENTRY_POINT}
+      - --remove-env-vars
+      - DATABASE_URL
       - --set-secrets
       - DATABASE_URL=${_DATABASE_URL_SECRET}:latest
       - --trigger-http
