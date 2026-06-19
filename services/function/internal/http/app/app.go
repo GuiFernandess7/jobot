@@ -13,11 +13,7 @@ import (
 )
 
 func NewHandler(logger *slog.Logger) (http.Handler, error) {
-	service, err := jobs.NewService(logger)
-	if err != nil {
-		return nil, err
-	}
-
+	service := jobs.NewService(logger)
 	return newEcho(logger, service), nil
 }
 

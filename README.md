@@ -111,6 +111,22 @@ gcloud builds submit --config deploy/function.cloudbuild.yaml .
 
 Esse pipeline faz deploy da Cloud Function Gen 2 usando apenas `services/function` como source do servico.
 
+Antes do primeiro deploy, crie um secret no Secret Manager com a connection string do PostgreSQL:
+
+```bash
+printf '%s' 'postgresql://user:password@host/database?sslmode=require' | \
+gcloud secrets create jobot-database-url --data-file=-
+```
+
+Se o secret ja existir e voce quiser atualizar o valor:
+
+```bash
+printf '%s' 'postgresql://user:password@host/database?sslmode=require' | \
+gcloud secrets versions add jobot-database-url --data-file=-
+```
+
+O nome do secret pode ser alterado no deploy via substituicao `_DATABASE_URL_SECRET`.
+
 ### Worker
 
 ```bash

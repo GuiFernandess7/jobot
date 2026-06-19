@@ -3,6 +3,7 @@ substitutions:
   _REGION: us-central1
   _RUNTIME: go125
   _ENTRY_POINT: Trigger
+  _DATABASE_URL_SECRET: jobot-database-url
 
 options:
   logging: CLOUD_LOGGING_ONLY
@@ -23,4 +24,6 @@ steps:
       - services/function
       - --entry-point
       - ${_ENTRY_POINT}
+      - --set-secrets
+      - DATABASE_URL=${_DATABASE_URL_SECRET}:latest
       - --trigger-http
