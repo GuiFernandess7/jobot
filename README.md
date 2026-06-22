@@ -1,4 +1,4 @@
-# jobot
+# jobot in development
 
 Monorepo em Go com dois servicos isolados por modulo:
 
