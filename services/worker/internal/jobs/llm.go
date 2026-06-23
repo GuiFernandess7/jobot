@@ -15,7 +15,48 @@ import (
 
 var ErrMissingLLMAPIURL = errors.New("LLM_API_URL is not set")
 
-const workerSystemPrompt = "Analise a vaga e responda em JSON estruturado seguindo estes criterios: vaga backend em Go ou Python, com beneficios explicitamente listados. Retorne apenas JSON com os campos decisao, titulo_vaga, empresa e justificativa."
+const workerSystemPrompt = `
+INSTRUCAO
+Voce analisa vagas de tecnologia e decide se a vaga combina com o candidato descrito abaixo.
+
+CANDIDATO_ALVO
+- cargo: desenvolvedor backend pleno
+- linguagens principais: Go e Python
+- stack recorrente: Echo, FastAPI, Flask, RabbitMQ, Docker, PostgreSQL, Firebase e GCP
+- experiencia relevante: ETL, integracao entre APIs e microsservicos, arquitetura orientada a eventos
+
+REGRAS_DE_APROVACAO
+- Retorne APROVADO somente se todos os requisitos obrigatorios forem atendidos.
+- Retorne REJEITADO se qualquer requisito obrigatorio falhar ou se a descricao for insuficiente para comprovar os requisitos.
+
+REQUISITOS_OBRIGATORIOS
+1. O foco principal da vaga deve ser desenvolvimento backend em Go ou Python.
+
+REGRAS_DE_REJEICAO
+- Rejeite vagas cujo foco principal seja Java, .NET, PHP, frontend, mobile, data science.
+
+COMO_AVALIAR
+- Priorize o texto da descricao da vaga.
+- Use titulo, empresa e link apenas como contexto complementar.
+- Se houver conflito entre titulo e descricao, priorize a descricao.
+- Nao invente informacoes ausentes.
+
+FORMATO_DE_RESPOSTA
+- Responda com JSON puro.
+- Nao use markdown.
+- Nao use bloco de codigo.
+- Nao escreva nenhuma explicacao fora do JSON.
+- O campo decisao deve ser texto, nunca boolean, numero ou objeto.
+- Use exatamente um destes valores string em decisao: "APROVADO" ou "REJEITADO".
+
+ESQUEMA_JSON
+{
+	"decisao": "APROVADO" | "REJEITADO",
+	"titulo_vaga": "string",
+	"empresa": "string",
+	"justificativa": "string curta e objetiva"
+}
+`
 
 const defaultLLMAPIURL = "https://api.siliconflow.com/v1/chat/completions"
 const defaultLLMModel = "deepseek-ai/DeepSeek-V3"
@@ -73,6 +114,7 @@ func (c *HTTPStructuredLLMClient) ReviewJob(ctx context.Context, details JobDeta
 	payload := llmRequest{
 		Model: c.model,
 		Messages: []llmMessage{
+			{Role: "system", Content: workerSystemPrompt},
 			{Role: "user", Content: buildJobReviewPrompt(details)},
 		},
 	}
@@ -165,8 +207,7 @@ func sanitizeLLMContent(content string) string {
 
 func buildJobReviewPrompt(details JobDetails) string {
 	return fmt.Sprintf(
-		"%s\n\nResponda apenas em JSON valido com os campos decisao, titulo_vaga, empresa e justificativa.\n\nTitulo: %s\nEmpresa: %s\nLink: %s\nDescricao: %s",
-		workerSystemPrompt,
+		"Analise a vaga abaixo e responda somente com JSON valido.\n\nDADOS_DA_VAGA\nTitulo: %s\nEmpresa: %s\nLink: %s\nDescricao:\n%s\n\nLEMBRETE_FINAL\nO campo decisao deve ser string com valor APROVADO ou REJEITADO. Nao use true, false, 0, 1 nem texto fora do JSON.",
 		details.Title,
 		details.Company,
 		details.ApplicationLink,
