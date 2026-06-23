@@ -4,8 +4,8 @@ substitutions:
   _AR_REPOSITORY: jobot
   _IMAGE_NAME: worker
   _DATABASE_URL_SECRET: jobot-database-url
-  _LLM_API_KEY_SECRET: jobot-llm-api-key
-  _DISCORD_WEBHOOK_SECRET: jobot-discord-webhook-url
+  _LLM_API_KEY_SECRET: LLM_API_KEY
+  _DISCORD_WEBHOOK_SECRET: DISCORD_WEBHOOK_URL
 
 options:
   logging: CLOUD_LOGGING_ONLY
