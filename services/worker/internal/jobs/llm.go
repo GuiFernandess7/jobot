@@ -91,10 +91,11 @@ type llmWrappedResponse struct {
 }
 
 type rawJobReview struct {
-	Decision      any `json:"decisao"`
-	JobTitle      any `json:"titulo_vaga"`
-	Company       any `json:"empresa"`
-	Justification any `json:"justificativa"`
+	Decision       any `json:"decisao"`
+	JobTitle       any `json:"titulo_vaga"`
+	Company        any `json:"empresa"`
+	Classification any `json:"status_processamento"`
+	Justification  any `json:"justificativa"`
 }
 
 func NewHTTPStructuredLLMClient() *HTTPStructuredLLMClient {
@@ -156,6 +157,7 @@ func (c *HTTPStructuredLLMClient) ReviewJob(ctx context.Context, details JobDeta
 	review.Decision = strings.ToUpper(strings.TrimSpace(review.Decision))
 	review.JobTitle = strings.TrimSpace(review.JobTitle)
 	review.Company = strings.TrimSpace(review.Company)
+	review.Classification = strings.TrimSpace(review.Classification)
 	review.Justification = strings.TrimSpace(review.Justification)
 
 	return review, nil
@@ -231,10 +233,11 @@ func normalizeRawJobReview(raw rawJobReview) (JobReview, error) {
 	}
 
 	return JobReview{
-		Decision:      decision,
-		JobTitle:      stringifyJSONValue(raw.JobTitle),
-		Company:       stringifyJSONValue(raw.Company),
-		Justification: stringifyJSONValue(raw.Justification),
+		Decision:       decision,
+		JobTitle:       stringifyJSONValue(raw.JobTitle),
+		Company:        stringifyJSONValue(raw.Company),
+		Classification: stringifyJSONValue(raw.Classification),
+		Justification:  stringifyJSONValue(raw.Justification),
 	}, nil
 }
 

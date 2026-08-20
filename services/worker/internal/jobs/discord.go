@@ -58,6 +58,7 @@ func (n *DiscordNotifier) SendApprovedJob(ctx context.Context, jobID string, rev
 			Fields: []discordEmbedField{
 				{Name: "Empresa", Value: fallbackString(review.Company, "Nao informada"), Inline: true},
 				{Name: "ID da vaga", Value: jobID, Inline: true},
+				{Name: "Decisão", Value: fallbackString(review.Decision, "Nao informada"), Inline: true},
 				{Name: "Link de candidatura", Value: applicationLink, Inline: false},
 			},
 		}},

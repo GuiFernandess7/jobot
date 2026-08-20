@@ -24,10 +24,11 @@ var jobTitlePattern = regexp.MustCompile(`(?s)<h2[^>]*class="[^"]*top-card-layou
 var companyNamePattern = regexp.MustCompile(`(?s)<a[^>]*class="[^"]*topcard__org-name-link[^"]*"[^>]*>(.*?)</a>|<span[^>]*class="[^"]*topcard__flavor[^"]*"[^>]*>(.*?)</span>`)
 
 type JobReview struct {
-	Decision      string `json:"decisao"`
-	JobTitle      string `json:"titulo_vaga"`
-	Company       string `json:"empresa"`
-	Justification string `json:"justificativa"`
+	Decision       string `json:"decisao"`
+	JobTitle       string `json:"titulo_vaga"`
+	Company        string `json:"empresa"`
+	Justification  string `json:"justificativa"`
+	Classification string `json:"status_processamento"`
 }
 
 type JobDetails struct {
@@ -123,6 +124,7 @@ func (p *Processor) processJob(ctx context.Context, pendingJob PendingJob) error
 	review.JobTitle = fallbackString(review.JobTitle, details.Title)
 	review.Company = fallbackString(review.Company, details.Company)
 
+	// Evaluate job description
 	if review.Decision != "APROVADO" && review.Decision != "REJEITADO" {
 		wrapped := fmt.Errorf("unexpected review decision %q", review.Decision)
 		if markErr := p.store.MarkJobErro(ctx, pendingJob.ID, wrapped.Error()); markErr != nil {
@@ -131,6 +133,7 @@ func (p *Processor) processJob(ctx context.Context, pendingJob PendingJob) error
 		return wrapped
 	}
 
+	// Send to discord the job description
 	if err := p.notifier.SendApprovedJob(ctx, pendingJob.ID, review, details.ApplicationLink); err != nil {
 		wrapped := fmt.Errorf("send discord webhook: %w", err)
 		if markErr := p.store.MarkJobErro(ctx, pendingJob.ID, wrapped.Error()); markErr != nil {
