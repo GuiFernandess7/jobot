@@ -1,6 +1,6 @@
 module github.com/GuiFernandess7/jobot/services/function
 
-go 1.27.0
+go 1.23
 
 require (
 	github.com/GoogleCloudPlatform/functions-framework-go v1.9.2
