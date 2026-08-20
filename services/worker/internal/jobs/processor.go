@@ -123,29 +123,24 @@ func (p *Processor) processJob(ctx context.Context, pendingJob PendingJob) error
 	review.JobTitle = fallbackString(review.JobTitle, details.Title)
 	review.Company = fallbackString(review.Company, details.Company)
 
-	switch review.Decision {
-	case "REJEITADO":
-		if err := p.store.MarkJobProcessed(ctx, pendingJob.ID, review, details.ApplicationLink); err != nil {
-			return err
-		}
-	case "APROVADO":
-		if err := p.notifier.SendApprovedJob(ctx, pendingJob.ID, review, details.ApplicationLink); err != nil {
-			wrapped := fmt.Errorf("send discord webhook: %w", err)
-			if markErr := p.store.MarkJobErro(ctx, pendingJob.ID, wrapped.Error()); markErr != nil {
-				return fmt.Errorf("%w; mark erro: %v", wrapped, markErr)
-			}
-			return wrapped
-		}
-
-		if err := p.store.MarkJobProcessed(ctx, pendingJob.ID, review, details.ApplicationLink); err != nil {
-			return err
-		}
-	default:
+	if review.Decision != "APROVADO" && review.Decision != "REJEITADO" {
 		wrapped := fmt.Errorf("unexpected review decision %q", review.Decision)
 		if markErr := p.store.MarkJobErro(ctx, pendingJob.ID, wrapped.Error()); markErr != nil {
 			return fmt.Errorf("%w; mark erro: %v", wrapped, markErr)
 		}
 		return wrapped
+	}
+
+	if err := p.notifier.SendApprovedJob(ctx, pendingJob.ID, review, details.ApplicationLink); err != nil {
+		wrapped := fmt.Errorf("send discord webhook: %w", err)
+		if markErr := p.store.MarkJobErro(ctx, pendingJob.ID, wrapped.Error()); markErr != nil {
+			return fmt.Errorf("%w; mark erro: %v", wrapped, markErr)
+		}
+		return wrapped
+	}
+
+	if err := p.store.MarkJobProcessed(ctx, pendingJob.ID, review, details.ApplicationLink); err != nil {
+		return err
 	}
 
 	logger.Info("processing job finished", "decision", review.Decision)
