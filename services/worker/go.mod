@@ -1,6 +1,6 @@
 module github.com/GuiFernandess7/jobot/services/worker
 
-go 1.25.0
+go 1.25
 
 require (
 	github.com/jackc/pgx/v5 v5.10.0
