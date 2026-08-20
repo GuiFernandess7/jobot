@@ -1,6 +1,6 @@
 module github.com/GuiFernandess7/jobot/services/function
 
-go 1.25.0
+go 1.27.0
 
 require (
 	github.com/GoogleCloudPlatform/functions-framework-go v1.9.2
@@ -24,7 +24,6 @@ require (
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/valyala/fasttemplate v1.2.2 // indirect
-	go.uber.org/atomic v1.11.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	go.uber.org/zap v1.28.0 // indirect
 	golang.org/x/crypto v0.55.0 // indirect
