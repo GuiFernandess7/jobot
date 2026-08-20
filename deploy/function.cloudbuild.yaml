@@ -1,7 +1,7 @@
 substitutions:
   _FUNCTION_NAME: jobot-trigger
   _REGION: southamerica-east1
-  _RUNTIME: go124 # Identificador correto para Go no Cloud Functions
+  _RUNTIME: go125 # Identificador correto para Go no Cloud Functions
   _ENTRY_POINT: Trigger
   _DATABASE_URL_SECRET: jobot-database-url
 
