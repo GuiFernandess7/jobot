@@ -1,7 +1,7 @@
 substitutions:
   _FUNCTION_NAME: jobot-trigger
-  _REGION: us-central1
-  _RUNTIME: go127
+  _REGION: southamerica-east1   # <--- Ajustado para alinhar com o Cloud Build
+  _RUNTIME: go122               # <--- Versão estável suportada pelo GCP
   _ENTRY_POINT: Trigger
   _DATABASE_URL_SECRET: jobot-database-url
 
@@ -12,8 +12,6 @@ steps:
   - name: gcr.io/google.com/cloudsdktool/cloud-sdk
     entrypoint: gcloud
     args:
-      # go127 is a Preview runtime, so it must be deployed via the beta surface.
-      - beta
       - functions
       - deploy
       - ${_FUNCTION_NAME}
