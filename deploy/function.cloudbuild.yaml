@@ -28,4 +28,5 @@ steps:
       - DATABASE_URL
       - --set-secrets
       - DATABASE_URL=${_DATABASE_URL_SECRET}:latest
+      #- --set-build-env-vars=GOTOOLCHAIN=local,GOSUMDB=off
       - --trigger-http
