@@ -1,7 +1,7 @@
 substitutions:
   _FUNCTION_NAME: jobot-trigger
   _REGION: southamerica-east1   # <--- Ajustado para alinhar com o Cloud Build
-  _RUNTIME: go122               # <--- Versão estável suportada pelo GCP
+  _RUNTIME: go121               # <--- Versão estável suportada pelo GCP
   _ENTRY_POINT: Trigger
   _DATABASE_URL_SECRET: jobot-database-url
 
