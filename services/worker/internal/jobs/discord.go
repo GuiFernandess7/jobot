@@ -44,9 +44,19 @@ func NewDiscordNotifier() *DiscordNotifier {
 	}
 }
 
+const (
+	discordColorApproved = 3066993  // verde
+	discordColorRejected = 15158332 // vermelho
+)
+
 func (n *DiscordNotifier) SendApprovedJob(ctx context.Context, jobID string, review JobReview, applicationLink string) error {
 	if n.webhookURL == "" {
 		return ErrMissingDiscordWebhookURL
+	}
+
+	color := discordColorApproved
+	if review.Decision == "REJEITADO" {
+		color = discordColorRejected
 	}
 
 	payload := discordWebhookPayload{
@@ -54,7 +64,7 @@ func (n *DiscordNotifier) SendApprovedJob(ctx context.Context, jobID string, rev
 			Title:       fallbackString(review.JobTitle, "Vaga aprovada"),
 			URL:         applicationLink,
 			Description: fallbackString(review.Justification, "Vaga aprovada pela triagem automatica."),
-			Color:       3066993,
+			Color:       color,
 			Fields: []discordEmbedField{
 				{Name: "Empresa", Value: fallbackString(review.Company, "Nao informada"), Inline: true},
 				{Name: "ID da vaga", Value: jobID, Inline: true},
